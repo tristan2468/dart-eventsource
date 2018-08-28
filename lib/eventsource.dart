@@ -72,7 +72,11 @@ class EventSource extends Stream<Event> {
     client = client ?? new http.Client();
     lastEventId = lastEventId ?? "";
     EventSource es = new EventSource._internal(url, client, lastEventId, cookie, timeout ?? Duration(seconds: 5));
-    await es._start();
+    try {
+      await es._start();
+    } catch (error) {
+      es._retry(error);
+    }
     return es;
   }
 
