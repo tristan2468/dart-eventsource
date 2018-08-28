@@ -76,7 +76,7 @@ class EventSource extends Stream<Event> {
     return es;
   }
 
-  EventSource._internal(this.url, this.client, this._lastEventId, this._cookies, this._timeoutConnection) {
+  EventSource._internal(this.url, this.client, this._lastEventId, this._cookies) {
     _decoder = new EventSourceDecoder(retryIndicator: _updateRetryDelay);
   }
 
