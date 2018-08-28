@@ -92,6 +92,7 @@ class EventSource extends Stream<Event> {
   /// Attempt to start a new connection.
   Future _start() async {
     _readyState = EventSourceReadyState.CONNECTING;
+    _stateController.add(_readyState);
     var request = new http.Request("GET", url);
     request.headers["Cache-Control"] = "no-cache";
     request.headers["Accept"] = "text/event-stream";
@@ -110,6 +111,7 @@ class EventSource extends Stream<Event> {
       throw new EventSourceSubscriptionException(response.statusCode, body);
     }
     _readyState = EventSourceReadyState.OPEN;
+    _stateController.add(_readyState);
     // start streaming the data
     response.stream.transform(_decoder).listen((Event event) {
       _streamController.add(event);
@@ -117,7 +119,10 @@ class EventSource extends Stream<Event> {
     },
         cancelOnError: true,
         onError: _retry,
-        onDone: () => _readyState = EventSourceReadyState.CLOSED);
+        onDone: () {
+          _readyState = EventSourceReadyState.CLOSED;
+          _stateController.add(_readyState);
+        });
   }
 
   /// Retries until a new connection is established. Uses exponential backoff.
