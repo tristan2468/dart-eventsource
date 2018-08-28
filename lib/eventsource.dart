@@ -58,11 +58,12 @@ class EventSource extends Stream<Event> {
   String _lastEventId;
   EventSourceDecoder _decoder;
   Map<String, dynamic> _cookies;
+  Duration _timeoutConnection;
 
   /// Create a new EventSource by connecting to the specified url.
   static Future<EventSource> connect(url,
       {http.Client client, String lastEventId,
-        Map<String, dynamic> query, Map<String, dynamic> cookie}) async {
+        Map<String, dynamic> query, Map<String, dynamic> cookie, Duration timeout}) async {
     // parameter initialization
     String queryString = null;
     if(query != null && query.length > 0) {
@@ -71,12 +72,12 @@ class EventSource extends Stream<Event> {
     url = url is Uri ? url : Uri.parse(url + (queryString != null ? '?${Uri.encodeFull(queryString)}' : ''));
     client = client ?? new http.Client();
     lastEventId = lastEventId ?? "";
-    EventSource es = new EventSource._internal(url, client, lastEventId, cookie);
+    EventSource es = new EventSource._internal(url, client, lastEventId, cookie, timeout ?? Duration(seconds: 3));
     await es._start();
     return es;
   }
 
-  EventSource._internal(this.url, this.client, this._lastEventId, this._cookies) {
+  EventSource._internal(this.url, this.client, this._lastEventId, this._cookies, this._timeoutConnection) {
     _decoder = new EventSourceDecoder(retryIndicator: _updateRetryDelay);
   }
 
@@ -115,7 +116,7 @@ class EventSource extends Stream<Event> {
     _readyState = EventSourceReadyState.OPEN;
     _stateController.add(_readyState);
     // start streaming the data
-    response.stream.transform(_decoder).timeout(Duration(microseconds: 10000)).listen((Event event) {
+    response.stream.transform(_decoder).timeout(_timeoutConnection).listen((Event event) {
       _streamController.add(event);
       if(event.event == 'close') {
         _readyState = EventSourceReadyState.CLOSED;
