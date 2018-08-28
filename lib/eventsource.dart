@@ -114,7 +114,7 @@ class EventSource extends Stream<Event> {
     _readyState = EventSourceReadyState.OPEN;
     _stateController.add(_readyState);
     // start streaming the data
-    response.stream.transform(_decoder).listen((Event event) {
+    response.stream.transform(_decoder).timeout(Duration(seconds: 10)).listen((Event event) {
       _streamController.add(event);
       if(event.event == 'close') {
         _readyState = EventSourceReadyState.CLOSED;
