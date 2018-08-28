@@ -14,6 +14,7 @@ import "src/event.dart";
 import "src/decoder.dart";
 
 enum EventSourceReadyState {
+  RECONNECTING,
   CONNECTING,
   OPEN,
   CLOSED,
@@ -48,7 +49,7 @@ class EventSource extends Stream<Event> {
       new StreamController<Event>.broadcast();
 
   StreamController<EventSourceReadyState> _stateController =
-      new StreamController<EventSourceReadyState>.broadcast();
+      new StreamController<EventSourceReadyState>();
 
   EventSourceReadyState _readyState = EventSourceReadyState.CLOSED;
 
@@ -117,8 +118,12 @@ class EventSource extends Stream<Event> {
       _streamController.add(event);
       _lastEventId = event.id;
     },
-        cancelOnError: true,
-        onError: _retry,
+        cancelOnError: false,
+        onError: (err) {
+          _readyState = EventSourceReadyState.RECONNECTING;
+          _stateController.add(_readyState);
+          _retry(err);
+        },
         onDone: () {
           _readyState = EventSourceReadyState.CLOSED;
           _stateController.add(_readyState);

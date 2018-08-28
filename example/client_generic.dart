@@ -36,6 +36,9 @@ main() async {
     print("  event: ${event.event}");
     print("  data: ${event.data}");
   });
+  query.listenState((EventSourceReadyState state) {
+    print('New state: ${state.toString()}');
+  });
 
   Map<String, dynamic> cookies = Map();
   cookies['msg'] = 'Hello world';
