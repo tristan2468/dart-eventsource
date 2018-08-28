@@ -35,7 +35,7 @@ main() async {
     print("New event:");
     print("  event: ${event.event}");
     print("  data: ${event.data}");
-  });
+  }, cancelOnError: false);
   query.listenState((EventSourceReadyState state) {
     print('New state: ${state.toString()}');
   });

@@ -88,7 +88,7 @@ class EventSource extends Stream<Event> {
         onError: onError, onDone: onDone, cancelOnError: cancelOnError);
   
   StreamSubscription<EventSourceReadyState> listenState(void onData(EventSourceReadyState event)) =>
-    _stateController.stream.listen(onData);
+    _stateController.stream.listen(onData, cancelOnError: false);
 
   /// Attempt to start a new connection.
   Future _start() async {
@@ -116,13 +116,16 @@ class EventSource extends Stream<Event> {
     // start streaming the data
     response.stream.transform(_decoder).listen((Event event) {
       _streamController.add(event);
+      if(event.event == 'close') {
+        _readyState = EventSourceReadyState.CLOSED;
+        _stateController.add(_readyState);
+      }
       _lastEventId = event.id;
     },
         cancelOnError: false,
         onError: (err) {
-          _readyState = EventSourceReadyState.RECONNECTING;
-          _stateController.add(_readyState);
           _retry(err);
+          _stateController.add(_readyState);
         },
         onDone: () {
           _readyState = EventSourceReadyState.CLOSED;
@@ -132,7 +135,7 @@ class EventSource extends Stream<Event> {
 
   /// Retries until a new connection is established. Uses exponential backoff.
   Future _retry(dynamic e) async {
-    _readyState = EventSourceReadyState.CONNECTING;
+    _readyState = EventSourceReadyState.RECONNECTING;
     // try reopening with exponential backoff
     Duration backoff = _retryDelay;
     while (true) {
