@@ -50,7 +50,7 @@ class EventSource extends Stream<Event> {
   StreamController<EventSourceReadyState> _stateController =
       new StreamController<EventSourceReadyState>();
 
-  EventSourceReadyState _readyState = EventSourceReadyState.CLOSED;
+  EventSourceReadyState _readyState = EventSourceReadyState.CONNECTING;
 
   http.Client client;
   Duration _retryDelay = const Duration(milliseconds: 3000);
@@ -97,6 +97,9 @@ class EventSource extends Stream<Event> {
 
   /// Attempt to start a new connection.
   Future _start() async {
+    if(_readyState == EventSourceReadyState.CLOSED) {
+      return;
+    }
     _readyState = EventSourceReadyState.CONNECTING;
     _stateController.add(_readyState);
     var request = new http.Request("GET", url);
@@ -132,8 +135,10 @@ class EventSource extends Stream<Event> {
     },
         cancelOnError: false,
         onError: (err) {
-          _stateController.add(EventSourceReadyState.CONNECTING);
-          _retry(err);
+          if(_readyState != EventSourceReadyState.CLOSED) {
+            _stateController.add(EventSourceReadyState.CONNECTING);
+            _retry(err);
+          }
         },
         onDone: () {
           _readyState = EventSourceReadyState.CLOSED;
@@ -143,16 +148,18 @@ class EventSource extends Stream<Event> {
 
   /// Retries until a new connection is established. Uses exponential backoff.
   Future _retry(dynamic e) async {
-    // try reopening with exponential backoff
-    Duration backoff = _retryDelay;
-    while (true) {
-      await new Future.delayed(backoff);
-      try {
-        await _start();
-        break;
-      } catch (error) {
-        _streamController.addError(error);
-        backoff *= 2;
+    if(_readyState != EventSourceReadyState.CLOSED) {
+      // try reopening with exponential backoff
+      Duration backoff = _retryDelay;
+      while (true) {
+        await new Future.delayed(backoff);
+        try {
+          await _start();
+          break;
+        } catch (error) {
+          _streamController.addError(error);
+          backoff *= 2;
+        }
       }
     }
   }
