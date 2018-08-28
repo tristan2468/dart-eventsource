@@ -55,9 +55,13 @@ class EventSource extends Stream<Event> {
 
   /// Create a new EventSource by connecting to the specified url.
   static Future<EventSource> connect(url,
-      {http.Client client, String lastEventId}) async {
+      {http.Client client, String lastEventId, Map<String, dynamic> query}) async {
     // parameter initialization
-    url = url is Uri ? url : Uri.parse(url);
+    String queryString = null;
+    if(query != null && query.length > 0) {
+      queryString = query.keys.map((k) => '$k=${query[k].toString()}').join('&');
+    }
+    url = url is Uri ? url : Uri.parse(url + (queryString != null ? '?${Uri.encodeFull(queryString)}' : ''));
     client = client ?? new http.Client();
     lastEventId = lastEventId ?? "";
     EventSource es = new EventSource._internal(url, client, lastEventId);
