@@ -121,6 +121,9 @@ class EventSource extends Stream<Event> {
       if(event.event == 'close') {
         _readyState = EventSourceReadyState.CLOSED;
         _stateController.add(_readyState);
+      } else if (_readyState != EventSourceReadyState.OPEN) {
+        _readyState = EventSourceReadyState.OPEN;
+        _stateController.add(_readyState);
       }
       _lastEventId = event.id;
     },
