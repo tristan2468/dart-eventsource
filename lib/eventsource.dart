@@ -83,9 +83,10 @@ class EventSource extends Stream<Event> {
   // proxy the listen call to the controller's listen call
   @override
   StreamSubscription<Event> listen(void onData(Event event),
-          {Function onError, void onDone(), bool cancelOnError}) =>
+          {Function onError, void onDone(), bool cancelOnError}) {
     _streamController.stream.listen(onData,
         onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+  }
   
   StreamSubscription<EventSourceReadyState> listenState(void onData(EventSourceReadyState event)) =>
     _stateController.stream.listen(onData, cancelOnError: false);
@@ -114,7 +115,7 @@ class EventSource extends Stream<Event> {
     _readyState = EventSourceReadyState.OPEN;
     _stateController.add(_readyState);
     // start streaming the data
-    response.stream.transform(_decoder).listen((Event event) {
+    response.stream.transform(_decoder).timeout(Duration(microseconds: 10000)).listen((Event event) {
       _streamController.add(event);
       if(event.event == 'close') {
         _readyState = EventSourceReadyState.CLOSED;
@@ -135,17 +136,19 @@ class EventSource extends Stream<Event> {
 
   /// Retries until a new connection is established. Uses exponential backoff.
   Future _retry(dynamic e) async {
-    _readyState = EventSourceReadyState.RECONNECTING;
-    // try reopening with exponential backoff
-    Duration backoff = _retryDelay;
-    while (true) {
-      await new Future.delayed(backoff);
-      try {
-        await _start();
-        break;
-      } catch (error) {
-        _streamController.addError(error);
-        backoff *= 2;
+    if(_readyState != EventSourceReadyState.CLOSED) {
+      _readyState = EventSourceReadyState.RECONNECTING;
+      // try reopening with exponential backoff
+      Duration backoff = _retryDelay;
+      while (true) {
+        await new Future.delayed(backoff);
+        try {
+          await _start();
+          break;
+        } catch (error) {
+          _streamController.addError(error);
+          backoff *= 2;
+        }
       }
     }
   }
