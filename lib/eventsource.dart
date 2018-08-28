@@ -14,7 +14,6 @@ import "src/event.dart";
 import "src/decoder.dart";
 
 enum EventSourceReadyState {
-  RECONNECTING,
   CONNECTING,
   OPEN,
   CLOSED,
@@ -58,7 +57,6 @@ class EventSource extends Stream<Event> {
   String _lastEventId;
   EventSourceDecoder _decoder;
   Map<String, dynamic> _cookies;
-  Duration _timeout;
 
   /// Create a new EventSource by connecting to the specified url.
   static Future<EventSource> connect(url,
@@ -72,12 +70,12 @@ class EventSource extends Stream<Event> {
     url = url is Uri ? url : Uri.parse(url + (queryString != null ? '?${Uri.encodeFull(queryString)}' : ''));
     client = client ?? new http.Client();
     lastEventId = lastEventId ?? "";
-    EventSource es = new EventSource._internal(url, client, lastEventId, cookie, timeout ?? Duration(seconds: 10));
+    EventSource es = new EventSource._internal(url, client, lastEventId, cookie);
     await es._start();
     return es;
   }
 
-  EventSource._internal(this.url, this.client, this._lastEventId, this._cookies, this._timeout) {
+  EventSource._internal(this.url, this.client, this._lastEventId, this._cookies) {
     _decoder = new EventSourceDecoder(retryIndicator: _updateRetryDelay);
   }
 
@@ -116,7 +114,7 @@ class EventSource extends Stream<Event> {
     _readyState = EventSourceReadyState.OPEN;
     _stateController.add(_readyState);
     // start streaming the data
-    response.stream.transform(_decoder).timeout(_timeout).listen((Event event) {
+    response.stream.transform(_decoder).listen((Event event) {
       _streamController.add(event);
       if(event.event == 'close') {
         _readyState = EventSourceReadyState.CLOSED;
@@ -129,8 +127,8 @@ class EventSource extends Stream<Event> {
     },
         cancelOnError: false,
         onError: (err) {
+          _stateController.add(EventSourceReadyState.CONNECTING);
           _retry(err);
-          _stateController.add(_readyState);
         },
         onDone: () {
           _readyState = EventSourceReadyState.CLOSED;
@@ -140,19 +138,16 @@ class EventSource extends Stream<Event> {
 
   /// Retries until a new connection is established. Uses exponential backoff.
   Future _retry(dynamic e) async {
-    if(_readyState != EventSourceReadyState.CLOSED) {
-      _readyState = EventSourceReadyState.RECONNECTING;
-      // try reopening with exponential backoff
-      Duration backoff = _retryDelay;
-      while (true) {
-        await new Future.delayed(backoff);
-        try {
-          await _start();
-          break;
-        } catch (error) {
-          _streamController.addError(error);
-          backoff *= 2;
-        }
+    // try reopening with exponential backoff
+    Duration backoff = _retryDelay;
+    while (true) {
+      await new Future.delayed(backoff);
+      try {
+        await _start();
+        break;
+      } catch (error) {
+        _streamController.addError(error);
+        backoff *= 2;
       }
     }
   }
