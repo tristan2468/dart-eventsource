@@ -47,6 +47,9 @@ class EventSource extends Stream<Event> {
   StreamController<Event> _streamController =
       new StreamController<Event>.broadcast();
 
+  StreamController<EventSourceReadyState> _stateController =
+      new StreamController<EventSourceReadyState>.broadcast();
+
   EventSourceReadyState _readyState = EventSourceReadyState.CLOSED;
 
   http.Client client;
@@ -80,8 +83,11 @@ class EventSource extends Stream<Event> {
   @override
   StreamSubscription<Event> listen(void onData(Event event),
           {Function onError, void onDone(), bool cancelOnError}) =>
-      _streamController.stream.listen(onData,
-          onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+    _streamController.stream.listen(onData,
+        onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+  
+  StreamSubscription<EventSourceReadyState> listenState(void onData(EventSourceReadyState event)) =>
+    _stateController.stream.listen(onData);
 
   /// Attempt to start a new connection.
   Future _start() async {
