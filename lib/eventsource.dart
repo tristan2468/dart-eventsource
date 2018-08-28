@@ -4,6 +4,7 @@ export "src/event.dart";
 
 import "dart:async";
 import "dart:convert";
+import 'dart:io';
 
 import "package:http/http.dart" as http;
 import "package:http/src/utils.dart" show encodingForCharset;
@@ -52,10 +53,12 @@ class EventSource extends Stream<Event> {
   Duration _retryDelay = const Duration(milliseconds: 3000);
   String _lastEventId;
   EventSourceDecoder _decoder;
+  Map<String, dynamic> _cookies;
 
   /// Create a new EventSource by connecting to the specified url.
   static Future<EventSource> connect(url,
-      {http.Client client, String lastEventId, Map<String, dynamic> query}) async {
+      {http.Client client, String lastEventId,
+        Map<String, dynamic> query, Map<String, dynamic> cookie}) async {
     // parameter initialization
     String queryString = null;
     if(query != null && query.length > 0) {
@@ -64,12 +67,12 @@ class EventSource extends Stream<Event> {
     url = url is Uri ? url : Uri.parse(url + (queryString != null ? '?${Uri.encodeFull(queryString)}' : ''));
     client = client ?? new http.Client();
     lastEventId = lastEventId ?? "";
-    EventSource es = new EventSource._internal(url, client, lastEventId);
+    EventSource es = new EventSource._internal(url, client, lastEventId, cookie);
     await es._start();
     return es;
   }
 
-  EventSource._internal(this.url, this.client, this._lastEventId) {
+  EventSource._internal(this.url, this.client, this._lastEventId, this._cookies) {
     _decoder = new EventSourceDecoder(retryIndicator: _updateRetryDelay);
   }
 
@@ -88,6 +91,10 @@ class EventSource extends Stream<Event> {
     request.headers["Accept"] = "text/event-stream";
     if (_lastEventId.isNotEmpty) {
       request.headers["Last-Event-ID"] = _lastEventId;
+    }
+    if(_cookies != null && _cookies.length > 0) {
+      String cookies = _cookies.keys.map((k) => '$k=${_cookies[k].toString()}').join('; ');
+      request.headers["Cookie"] = '$cookies; Secure; HttpOnly';
     }
     var response = await client.send(request);
     if (response.statusCode != 200) {

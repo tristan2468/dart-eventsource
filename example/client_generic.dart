@@ -36,4 +36,15 @@ main() async {
     print("  event: ${event.event}");
     print("  data: ${event.data}");
   });
+
+  Map<String, dynamic> cookies = Map();
+  cookies['msg'] = 'Hello world';
+  EventSource cookie = await EventSource.connect("http://example.org/events",
+      cookie: cookies);
+  // listen for events
+  cookie.listen((Event event) {
+    print("New event:");
+    print("  event: ${event.event}");
+    print("  data: ${event.data}");
+  });
 }
