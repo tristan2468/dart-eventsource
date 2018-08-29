@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import "package:eventsource/eventsource.dart";
 
 main() async {
@@ -28,8 +30,11 @@ main() async {
 
   Map<String, dynamic> params = Map();
   params['msg'] = 'Hello world';
+  List<Cookie> cookies = List();
+  cookies.add(Cookie.fromSetCookieValue("name=value"));
+  cookies.add(Cookie.fromSetCookieValue("name1=value1"));
   EventSource query = await EventSource.connect("https://www.strehle.de/tim/demos/stream.php",
-      query: params);
+      query: params, cookies: cookies);
   // listen for events
   query.listen((Event event) {
     print("New event:");
@@ -38,16 +43,5 @@ main() async {
   }, cancelOnError: false);
   query.listenState((EventSourceReadyState state) {
     print('New state: ${state.toString()}');
-  });
-
-  Map<String, dynamic> cookies = Map();
-  cookies['msg'] = 'Hello world';
-  EventSource cookie = await EventSource.connect("http://example.org/events",
-      cookie: cookies);
-  // listen for events
-  cookie.listen((Event event) {
-    print("New event:");
-    print("  event: ${event.event}");
-    print("  data: ${event.data}");
   });
 }

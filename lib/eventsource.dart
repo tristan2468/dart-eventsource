@@ -56,13 +56,13 @@ class EventSource extends Stream<Event> {
   Duration _retryDelay = const Duration(milliseconds: 3000);
   String _lastEventId;
   EventSourceDecoder _decoder;
-  Map<String, dynamic> _cookies;
   Duration _timeout;
+  List<Cookie> _cookies;
 
   /// Create a new EventSource by connecting to the specified url.
   static Future<EventSource> connect(url,
       {http.Client client, String lastEventId,
-        Map<String, dynamic> query, Map<String, dynamic> cookie, Duration timeout}) async {
+        Map<String, dynamic> query, List<Cookie> cookies, Duration timeout}) async {
     // parameter initialization
     String queryString = null;
     if(query != null && query.length > 0) {
@@ -71,7 +71,7 @@ class EventSource extends Stream<Event> {
     url = url is Uri ? url : Uri.parse(url + (queryString != null ? '?${Uri.encodeFull(queryString)}' : ''));
     client = client ?? new http.Client();
     lastEventId = lastEventId ?? "";
-    EventSource es = new EventSource._internal(url, client, lastEventId, cookie, timeout ?? Duration(seconds: 5));
+    EventSource es = new EventSource._internal(url, client, lastEventId, cookies ?? List(), timeout ?? Duration(seconds: 5));
     try {
       await es._start();
     } catch (error) {
@@ -87,10 +87,9 @@ class EventSource extends Stream<Event> {
   // proxy the listen call to the controller's listen call
   @override
   StreamSubscription<Event> listen(void onData(Event event),
-          {Function onError, void onDone(), bool cancelOnError}) {
+          {Function onError, void onDone(), bool cancelOnError}) =>
     _streamController.stream.listen(onData,
         onError: onError, onDone: onDone, cancelOnError: cancelOnError);
-  }
   
   StreamSubscription<EventSourceReadyState> listenState(void onData(EventSourceReadyState event)) =>
     _stateController.stream.listen(onData, cancelOnError: false);
@@ -109,8 +108,7 @@ class EventSource extends Stream<Event> {
       request.headers["Last-Event-ID"] = _lastEventId;
     }
     if(_cookies != null && _cookies.length > 0) {
-      String cookies = _cookies.keys.map((k) => '$k=${_cookies[k].toString()}').join('; ');
-      request.headers["Cookie"] = '$cookies; Secure; HttpOnly';
+      request.headers["Cookie"] = _cookies.map((c) => c.toString()).join('; ');
     }
     var response = await client.send(request);
     if (response.statusCode != 200) {
@@ -119,6 +117,11 @@ class EventSource extends Stream<Event> {
       String body = _encodingForHeaders(response.headers).decode(bodyBytes);
       throw new EventSourceSubscriptionException(response.statusCode, body);
     }
+    response.headers.keys.forEach((header) {
+      if(header.toLowerCase() == 'set-cookie') {
+        _cookies.add(Cookie.fromSetCookieValue(response.headers[header]));
+      }
+    });
     _readyState = EventSourceReadyState.OPEN;
     _stateController.add(_readyState);
     // start streaming the data
